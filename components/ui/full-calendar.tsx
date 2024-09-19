@@ -167,11 +167,12 @@ const CalendarViewTrigger = forwardRef<
   React.HTMLAttributes<HTMLButtonElement> & {
     view: View;
   }
->(({ children, view, ...props }) => {
+>(({ children, view, ...props }, ref) => {
   const { view: currentView, setView, onChangeView } = useCalendar();
 
   return (
     <Button
+      ref={ref}
       aria-current={currentView === view}
       size="sm"
       variant="ghost"
@@ -194,34 +195,46 @@ const EventGroup = ({
   events: CalendarEvent[];
   hour: Date;
 }) => {
-  return (
-    <div className="h-20 border-t last:border-b">
-      {events
-        .filter((event) => isSameHour(event.start, hour))
-        .map((event) => {
-          const hoursDifference =
-            differenceInMinutes(event.end, event.start) / 60;
-          const startPosition = event.start.getMinutes() / 60;
+  const eventsInHour = events.filter((event) => isSameHour(event.start, hour));
+  const eventCount = eventsInHour.length;
 
-          return (
-            <div
-              key={event.id}
-              className={cn(
-                'relative',
-                dayEventVariants({ variant: event.color })
+  return (
+    <div className="h-20 border-t last:border-b relative">
+      {eventsInHour.map((event, index) => {
+        const hoursDifference =
+          differenceInMinutes(event.end, event.start) / 60;
+        const startPosition = event.start.getMinutes() / 60;
+        const width = 100;
+
+        return (
+          <div
+            key={event.id}
+            className={cn(
+              'absolute',
+              dayEventVariants({ variant: event.color })
+            )}
+            style={{
+              top: `${startPosition * 100}%`,
+              height: `${hoursDifference * 100}%`,
+              width: `${width}%`,
+              zIndex: index + 1,
+            }}
+          >
+            <div className="flex flex-col justify-between h-full p-1 overflow-hidden">
+              {eventCount > 1 ? (
+                <ul className="text-xs font-semibold list-disc list-inside">
+                  {eventsInHour.map((e) => (
+                    <li key={e.id} className="truncate">{e.title}</li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-xs font-semibold truncate">{event.title}</div>
               )}
-              style={{
-                top: `${startPosition * 100}%`,
-                height: `${hoursDifference * 100}%`,
-              }}
-            >
-              <div className="flex flex-row justify-between">
-                <div>{event.title}</div>
-                <div className="text-right">{format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}</div>
-              </div>
+              <div className="text-xs">{format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}</div>
             </div>
-          );
-        })}
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -289,7 +302,7 @@ const CalendarWeekView = () => {
               className={cn(
                 'h-6 grid place-content-center',
                 isToday(date) &&
-                  'bg-primary text-primary-foreground rounded-full size-6'
+                'bg-primary text-primary-foreground rounded-full size-6'
               )}
             >
               {format(date, 'd')}
@@ -387,7 +400,7 @@ const CalendarMonthView = () => {
                     ></div>
                     <span className="flex-1 truncate">{event.title}</span>
                     <time className="tabular-nums text-muted-foreground/50 text-xs">
-                      {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')} 
+                      {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}
                     </time>
                   </div>
                 );
@@ -447,8 +460,8 @@ const CalendarYearView = () => {
                     className={cn(
                       'aspect-square grid place-content-center size-full tabular-nums',
                       isSameDay(today, _date) &&
-                        getMonth(_date) === i &&
-                        'bg-primary text-primary-foreground rounded-full'
+                      getMonth(_date) === i &&
+                      'bg-primary text-primary-foreground rounded-full'
                     )}
                   >
                     {format(_date, 'd')}
