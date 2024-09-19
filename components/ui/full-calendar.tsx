@@ -558,7 +558,7 @@ const CalendarTodayTrigger = forwardRef<
   HTMLButtonElement,
   React.HTMLAttributes<HTMLButtonElement>
 >(({ children, onClick, ...props }, ref) => {
-  const { setDate, enableHotkeys, today } = useCalendar();
+  const { setDate, enableHotkeys, today, date } = useCalendar();
 
   useHotkeys('t', () => jumpToToday(), {
     enabled: enableHotkeys,
@@ -568,14 +568,19 @@ const CalendarTodayTrigger = forwardRef<
     setDate(today);
   }, [today, setDate]);
 
+  const isToday = isSameDay(date, today);
+
   return (
     <Button
       variant="outline"
       ref={ref}
       {...props}
+      disabled={isToday}
       onClick={(e) => {
-        jumpToToday();
-        onClick?.(e);
+        if (!isToday) {
+          jumpToToday();
+          onClick?.(e);
+        }
       }}
     >
       {children}
