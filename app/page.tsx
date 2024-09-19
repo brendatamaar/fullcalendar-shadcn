@@ -42,7 +42,7 @@ export default function Page() {
         {
           id: '4',
           start: new Date('2024-09-19T22:54:00'),
-          end: new Date('2024-09-20T02:10:00'),
+          end: new Date('2024-09-21T02:10:00'),
           title: 'event D',
           color: 'purple',
         },
@@ -51,7 +51,7 @@ export default function Page() {
           start: new Date('2024-09-19T21:49:00'),
           end: new Date('2024-09-20T04:10:00'),
           title: 'event E',
-          color: 'blue',
+          color: 'green',
         },
       ]}
     >

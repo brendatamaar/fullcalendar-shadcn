@@ -9,6 +9,7 @@ import {
   addMonths,
   addWeeks,
   addYears,
+  differenceInDays,
   differenceInMinutes,
   format,
   getMonth,
@@ -17,7 +18,9 @@ import {
   isSameMonth,
   isToday,
   setHours,
+  setMinutes,
   setMonth,
+  startOfDay,
   startOfMonth,
   startOfWeek,
   subDays,
@@ -195,59 +198,62 @@ const EventGroup = ({
   events: CalendarEvent[];
   hour: Date;
 }) => {
-  const { onEventClick } = useCalendar();
-  const eventsInHour = events.filter((event) => isSameHour(event.start, hour));
+  const splitEvents = useMemo(() => {
+    return events.flatMap((event) => splitMultiDayEvents(event));
+  }, [events]);
 
-  // Sort events by start time
-  const sortedEvents = eventsInHour.sort((a, b) => a.start.getTime() - b.start.getTime());
-
-  // Calculate overlapping events and assign columns
-  const eventColumns: CalendarEvent[][] = [];
-  sortedEvents.forEach((event) => {
-    let column = 0;
-    while (eventColumns[column]?.some(existingEvent => 
-      (event.start < existingEvent.end && event.end > existingEvent.start)
-    )) {
-      column++;
-    }
-    if (!eventColumns[column]) {
-      eventColumns[column] = [];
-    }
-    eventColumns[column].push(event);
-  });
+  const eventsInHour = splitEvents.filter((event) =>
+    isSameHour(event.start, hour)
+  );
+  const eventCount = eventsInHour.length;
 
   return (
     <div className="h-20 border-t last:border-b relative">
-      {eventColumns.map((column, columnIndex) => 
-        column.map((event, index) => {
-          const hoursDifference = differenceInMinutes(event.end, event.start) / 60;
-          const startPosition = event.start.getMinutes() / 60;
-          const width = 100 / eventColumns.length;
+      {eventsInHour.map((event, index) => {
+        const hoursDifference = differenceInMinutes(event.end, event.start) / 60;
+        const startPosition = event.start.getMinutes() / 60;
+        const width = 100;
 
-          return (
-            <div
-              key={event.id}
-              className={cn(
-                'absolute cursor-pointer',
-                dayEventVariants({ variant: event.color })
+        return (
+          <div
+            key={event.id}
+            className={cn(
+              'absolute',
+              dayEventVariants({ variant: event.color })
+            )}
+            style={{
+              top: `${startPosition * 100}%`,
+              height: `${hoursDifference * 100}%`,
+              width: `${width}%`,
+              zIndex: index + 1,
+            }}
+          >
+            <div className="flex flex-col justify-between h-full p-1 overflow-hidden">
+              {eventCount > 1 ? (
+                <ul className="text-xs font-semibold list-disc list-inside">
+                  {eventsInHour.map((e) => (
+                    <li key={e.id} className="truncate">
+                      {e.title} (
+                      <span className="text-xs">
+                        {format(e.start, 'HH:mm')} - {format(e.end, 'HH:mm')}
+                      </span>
+                      )
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-xs font-semibold truncate">
+                  {event.title} (
+                  <span className="text-xs">
+                    {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}
+                  </span>
+                  )
+                </div>
               )}
-              style={{
-                top: `${startPosition * 100}%`,
-                height: `${hoursDifference * 100}%`,
-                width: `${width}%`,
-                left: `${columnIndex * width}%`,
-                zIndex: index + 1,
-              }}
-              onClick={() => onEventClick?.(event)}
-            >
-              <div className="flex flex-col justify-between h-full p-1 overflow-hidden">
-                <div className="text-xs font-semibold truncate">{event.title}</div>
-                <div className="text-xs">{format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}</div>
-              </div>
             </div>
-          );
-        })
-      )}
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -571,7 +577,7 @@ const CalendarTodayTrigger = forwardRef<
   HTMLButtonElement,
   React.HTMLAttributes<HTMLButtonElement>
 >(({ children, onClick, ...props }, ref) => {
-  const { setDate, enableHotkeys, today } = useCalendar();
+  const { setDate, enableHotkeys, today, date } = useCalendar();
 
   useHotkeys('t', () => jumpToToday(), {
     enabled: enableHotkeys,
@@ -581,14 +587,19 @@ const CalendarTodayTrigger = forwardRef<
     setDate(today);
   }, [today, setDate]);
 
+  const isToday = isSameDay(date, today);
+
   return (
     <Button
       variant="outline"
       ref={ref}
       {...props}
+      disabled={isToday}
       onClick={(e) => {
-        jumpToToday();
-        onClick?.(e);
+        if (!isToday) {
+          jumpToToday();
+          onClick?.(e);
+        }
       }}
     >
       {children}
@@ -662,6 +673,35 @@ const generateWeekdays = (locale: Locale) => {
     daysOfWeek.push(format(date, 'EEEEEE', { locale }));
   }
   return daysOfWeek;
+};
+
+const splitMultiDayEvents = (event: CalendarEvent): CalendarEvent[] => {
+  const startDate = startOfDay(event.start);
+  const endDate = startOfDay(event.end);
+  const daysDifference = differenceInDays(endDate, startDate);
+
+  if (daysDifference === 0) {
+    return [event];
+  }
+
+  const splitEvents: CalendarEvent[] = [];
+
+  for (let i = 0; i <= daysDifference; i++) {
+    const currentDate = addDays(startDate, i);
+    const isFirstDay = i === 0;
+    const isLastDay = i === daysDifference;
+
+    splitEvents.push({
+      ...event,
+      start: isFirstDay ? event.start : setHours(setMinutes(currentDate, 0), 0),
+      end: isLastDay
+        ? event.end
+        : setHours(setMinutes(addDays(currentDate, 1), 0), 0),
+      id: `${event.id}-${i}`,
+    });
+  }
+
+  return splitEvents;
 };
 
 export {
