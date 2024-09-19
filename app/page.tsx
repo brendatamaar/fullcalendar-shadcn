@@ -34,10 +34,24 @@ export default function Page() {
         },
         {
           id: '3',
-          start: new Date(),
+          start: addHours(new Date(), 1),
           end: addHours(new Date(), 2),
           title: 'event C',
           color: 'green',
+        },
+        {
+          id: '4',
+          start: new Date('2024-09-19T22:54:00'),
+          end: new Date('2024-09-20T02:10:00'),
+          title: 'event D',
+          color: 'purple',
+        },
+        {
+          id: '5',
+          start: new Date('2024-09-19T21:49:00'),
+          end: new Date('2024-09-20T04:10:00'),
+          title: 'event E',
+          color: 'blue',
         },
       ]}
     >
